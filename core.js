@@ -346,7 +346,6 @@ function processVoiceCommand(cmd) {
     cmd = cmd.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g,""); 
     if (cmd.includes('next') || cmd.includes('change')) { changeProduct(1); triggerVisualFeedback("Next"); } 
     else if (cmd.includes('back') || cmd.includes('previous')) { changeProduct(-1); triggerVisualFeedback("Previous"); } 
-    else if (cmd.includes('photo') || cmd.includes('capture')) takeSnapshot(); 
     else if (cmd.includes('earring')) selectJewelryType('earrings'); 
     else if (cmd.includes('chain')) selectJewelryType('chains'); 
     else if (cmd.includes('ring')) selectJewelryType('rings'); 
@@ -560,17 +559,6 @@ function captureToGallery() {
 }
 
 /* --- 11. TRY ALL & GALLERY LOGIC --- */
-function takeSnapshot() {
-    triggerFlash(); 
-    const data = captureToGallery();
-    if (data) {
-        currentPreviewData = data;
-        document.getElementById('preview-image').src = data.url;
-        document.getElementById('preview-modal').style.display = 'flex';
-        if(concierge.active) concierge.speak("Captured perfectly!");
-    }
-}
-
 function toggleTryAll() { 
     if (!window.JewelsState.currentType) { alert("Select category!"); return; } 
     if (autoTryRunning) stopAutoTry(); else startAutoTry(); 
@@ -652,7 +640,6 @@ window.selectJewelryType = selectJewelryType;
 window.toggleTryAll = toggleTryAll; 
 window.tryDailyItem = tryDailyItem; 
 window.closeDailyDrop = closeDailyDrop; 
-window.takeSnapshot = takeSnapshot; 
 window.toggleCoShop = toggleCoShop; 
 window.closeCoShopModal = closeCoShopModal; 
 window.copyInviteLink = copyInviteLink; 
