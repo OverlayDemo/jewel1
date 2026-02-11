@@ -296,7 +296,7 @@ window.onload = async () => {
     await selectJewelryType('earrings');
 };
 
-/* --- 7. LOGIC: SELECTION & STACKING --- */
+/* --- 7. LOGIC: SELECTION & STACKING -- - */
 function toggleStacking() {
     window.JewelsState.stackingEnabled = !window.JewelsState.stackingEnabled;
     const btn = document.getElementById('stacking-btn');
