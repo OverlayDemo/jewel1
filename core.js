@@ -668,3 +668,67 @@ window.toggleConciergeMute = () => concierge.toggle();
 window.initVoiceControl = initVoiceControl;
 window.toggleVoiceControl = toggleVoiceControl;
 function lerp(start, end, amt) { return (1 - amt) * start + amt * end; }
+/* --- SNAPSHOT & SHARING LOGIC --- */
+
+async function takeSnapshot() {
+    triggerFlash(); // Use your existing flash effect
+    
+    // Use your existing capture logic
+    const snapshot = captureToGallery();
+    
+    if (snapshot && snapshot.url) {
+        currentPreviewData = snapshot; // Store for download/share
+        const previewImg = document.getElementById('preview-image');
+        previewImg.src = snapshot.url;
+        
+        // Show the modal
+        document.getElementById('preview-modal').style.display = 'flex';
+        if(concierge.active) concierge.speak("Looking Great! Would you like to save this?");
+    } else {
+        showToast("Error capturing image.");
+    }
+}
+
+function downloadSingleSnapshot() {
+    if (!currentPreviewData.url) return;
+    const link = document.createElement('a');
+    link.href = currentPreviewData.url;
+    link.download = `Jewels-Ai_${Date.now()}.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showToast("Image Saved!");
+}
+
+async function shareSingleSnapshot() {
+    if (!currentPreviewData.url) return;
+    
+    try {
+        const response = await fetch(currentPreviewData.url);
+        const blob = await response.blob();
+        const file = new File([blob], 'my-jewels-look.png', { type: 'image/png' });
+
+        if (navigator.share) {
+            await navigator.share({
+                title: 'My Jewels-Ai Look',
+                text: 'Check out this jewelry I tried on virtually!',
+                files: [file]
+            });
+        } else {
+            showToast("Sharing not supported on this browser.");
+        }
+    } catch (err) {
+        console.error("Sharing failed:", err);
+        showToast("Could not share image.");
+    }
+}
+
+// Add this to your existing closePreview function or ensure it exists
+function closePreview() {
+    document.getElementById('preview-modal').style.display = 'none';
+}
+
+// Ensure global access
+window.takeSnapshot = takeSnapshot;
+window.downloadSingleSnapshot = downloadSingleSnapshot;
+window.shareSingleSnapshot = shareSingleSnapshot;

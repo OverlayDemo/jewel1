@@ -63,7 +63,18 @@
 
     <div id="toast-notification">Action Disabled</div>
   </div>
+<button id="snapshot-btn" onclick="takeSnapshot()" title="Take Snapshot">📸</button>
 
+<div id="preview-modal" class="modal-overlay">
+    <div class="close-preview" onclick="closePreview()">&times;</div>
+    <div class="preview-container">
+        <img id="preview-image" src="" alt="Your Look">
+    </div>
+    <div class="preview-actions">
+        <button class="pill accent" onclick="downloadSingleSnapshot()">Download</button>
+        <button class="pill" onclick="shareSingleSnapshot()">Share</button>
+    </div>
+</div>
   <script src="core.js"></script>
   <script>
     // Prevent context menu for a more app-like feel
