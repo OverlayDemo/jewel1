@@ -1,4 +1,4 @@
-/* core.js - Jewels-Ai: Master Engine (v11.6 - Fixed Mix & Match) */
+/* core.js - Jewels-Ai: Master Engine (v12.0 - Integrated Snapshot & Sharing) */
 
 /* --- CONFIGURATION --- */
 const API_KEY = "AIzaSyAXG3iG2oQjUA_BpnO8dK8y-MHJ7HLrhyE"; 
@@ -69,7 +69,7 @@ let handSmoother = {
     bangle: { x: 0, y: 0, angle: 0, size: 0 }
 };
 
-/* --- 1. CORE NAVIGATION FUNCTIONS (Hoisted) --- */
+/* --- 1. CORE NAVIGATION FUNCTIONS --- */
 function changeProduct(direction) { 
     if (!JEWELRY_ASSETS[window.JewelsState.currentType]) return; 
     
@@ -90,7 +90,57 @@ function triggerVisualFeedback(text) {
     setTimeout(() => { feedback.remove(); }, 1000); 
 }
 
-/* --- 2. AI CONCIERGE "NILA" --- */
+/* --- 2. SNAPSHOT, DOWNLOAD & SHARING LOGIC --- */
+async function takeSnapshot() {
+    triggerFlash(); 
+    const snapshot = captureToGallery();
+    
+    if (snapshot && snapshot.url) {
+        currentPreviewData = snapshot; 
+        const previewImg = document.getElementById('preview-image');
+        if (previewImg) previewImg.src = snapshot.url;
+        
+        document.getElementById('preview-modal').style.display = 'flex';
+        if(concierge.active) concierge.speak("Looking Great! You can now download or share this look.");
+    } else {
+        showToast("Error capturing image.");
+    }
+}
+
+function downloadSingleSnapshot() {
+    if (!currentPreviewData.url) return;
+    const link = document.createElement('a');
+    link.href = currentPreviewData.url;
+    link.download = currentPreviewData.name || `Jewels-Ai_${Date.now()}.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showToast("Image Saved!");
+}
+
+async function shareSingleSnapshot() {
+    if (!currentPreviewData.url) return;
+    try {
+        const response = await fetch(currentPreviewData.url);
+        const blob = await response.blob();
+        const file = new File([blob], 'my-jewels-look.png', { type: 'image/png' });
+
+        if (navigator.share) {
+            await navigator.share({
+                title: 'My Jewels-Ai Look',
+                text: 'Check out this jewelry I tried on virtually!',
+                files: [file]
+            });
+        } else {
+            showToast("Sharing not supported. Try downloading!");
+        }
+    } catch (err) {
+        console.error("Sharing failed:", err);
+        showToast("Could not share image.");
+    }
+}
+
+/* --- 3. AI CONCIERGE "NILA" --- */
 const concierge = {
     synth: window.speechSynthesis,
     voice: null,
@@ -159,7 +209,7 @@ const concierge = {
     }
 };
 
-/* --- 3. CO-SHOPPING ENGINE --- */
+/* --- 4. CO-SHOPPING ENGINE --- */
 const coShop = {
     peer: null, conn: null, myId: null, active: false, isHost: false, 
     init: function() {
@@ -178,7 +228,7 @@ const coShop = {
     activateUI: function() { this.active = true; document.getElementById('voting-ui').style.display = 'flex'; document.getElementById('coshop-btn').style.color = '#00ff00'; }
 };
 
-/* --- 4. ASSET LOADING --- */
+/* --- 5. ASSET LOADING --- */
 function initBackgroundFetch() { Object.keys(DRIVE_FOLDERS).forEach(key => fetchCategoryData(key)); }
 
 function fetchCategoryData(category) {
@@ -225,13 +275,13 @@ function setActiveARImage(img) {
     else if (type === 'bangles') window.JewelsState.active.bangles = img;
 }
 
-/* --- 5. APP INIT --- */
+/* --- 6. APP INIT --- */
 window.onload = async () => {
     initBackgroundFetch();
     coShop.init(); 
     concierge.init();
     
-    // --- FIX: MANUAL CLOSE BUTTON BINDING ---
+    // Manual Close Button Binding
     const closePrev = document.querySelector('.close-preview');
     if(closePrev) closePrev.onclick = closePreview;
     
@@ -240,16 +290,13 @@ window.onload = async () => {
     
     const closeLight = document.querySelector('.close-lightbox');
     if(closeLight) closeLight.onclick = closeLightbox;
-    // ----------------------------------------
 
     await startCameraFast('user');
     setTimeout(() => { loadingStatus.style.display = 'none'; }, 2000);
     await selectJewelryType('earrings');
 };
 
-/* --- 6. LOGIC: SELECTION & STACKING --- */
-
-/* --- ADDED: Mix & Match Toggle Function --- */
+/* --- 7. LOGIC: SELECTION & STACKING --- */
 function toggleStacking() {
     window.JewelsState.stackingEnabled = !window.JewelsState.stackingEnabled;
     const btn = document.getElementById('stacking-btn');
@@ -262,7 +309,6 @@ function toggleStacking() {
         if(btn) btn.classList.remove('active');
         showToast("Mix & Match: OFF");
         
-        // Clear other types, keep current
         const current = window.JewelsState.currentType;
         Object.keys(window.JewelsState.active).forEach(key => {
             if (key !== current) window.JewelsState.active[key] = null;
@@ -270,7 +316,6 @@ function toggleStacking() {
         if(concierge.active) concierge.speak("Single mode active.");
     }
 }
-/* ------------------------------------------ */
 
 async function selectJewelryType(type) {
   if (window.JewelsState.currentType === type && type !== undefined) return;
@@ -331,7 +376,7 @@ function highlightButtonByIndex(index) {
     }
 }
 
-/* --- 7. VOICE CONTROL --- */
+/* --- 8. VOICE CONTROL --- */
 function initVoiceControl() {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) { if(voiceBtn) voiceBtn.style.display = 'none'; return; }
@@ -352,7 +397,7 @@ function processVoiceCommand(cmd) {
     else if (cmd.includes('bangle')) selectJewelryType('bangles'); 
 }
 
-/* --- 8. CAMERA & TRACKING --- */
+/* --- 9. CAMERA & TRACKING --- */
 async function startCameraFast(mode = 'user') {
     if (!coShop.isHost && coShop.active) return; 
     if (videoElement.srcObject && currentCameraMode === mode && videoElement.readyState >= 2) return;
@@ -374,7 +419,7 @@ async function detectLoop() {
     requestAnimationFrame(detectLoop);
 }
 
-/* --- 9. RENDER LOOPS --- */
+/* --- 10. RENDER LOOPS --- */
 const faceMesh = new FaceMesh({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}` });
 faceMesh.setOptions({ refineLandmarks: true, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
 faceMesh.onResults((results) => {
@@ -394,7 +439,6 @@ faceMesh.onResults((results) => {
     const leftEar = { x: lm[132].x * w, y: lm[132].y * h }; const rightEar = { x: lm[361].x * w, y: lm[361].y * h };
     const neck = { x: lm[152].x * w, y: lm[152].y * h }; const nose = { x: lm[1].x * w, y: lm[1].y * h };
     
-    // Physics
     const gravityTarget = -Math.atan2(rightEar.y - leftEar.y, rightEar.x - leftEar.x); 
     physics.earringVelocity += (gravityTarget - physics.earringAngle) * 0.1; 
     physics.earringVelocity *= 0.92; physics.earringAngle += physics.earringVelocity;
@@ -426,7 +470,6 @@ function calculateAngle(p1, p2) { return Math.atan2(p2.y - p1.y, p2.x - p1.x); }
 hands.onResults((results) => {
   const w = videoElement.videoWidth; const h = videoElement.videoHeight;
   
-  /* --- FIX: GESTURE DETECTION (MIRRORED LOGIC) --- */
   if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
       const lm = results.multiHandLandmarks[0];
       const indexTipX = lm[8].x; 
@@ -435,14 +478,9 @@ hands.onResults((results) => {
           if (previousHandX !== null) {
               const diff = indexTipX - previousHandX;
               if (Math.abs(diff) > 0.04) { 
-                  // In Mirrored view:
-                  // Physical LEFT Swipe = Hand moves RIGHT on screen (diff > 0) -> Previous (-1)
-                  // Physical RIGHT Swipe = Hand moves LEFT on screen (diff < 0) -> Next (1)
                   const dir = (diff > 0) ? -1 : 1; 
-                  
                   changeProduct(dir); 
                   triggerVisualFeedback(dir === -1 ? "⬅️ Previous" : "Next ➡️");
-                  
                   lastGestureTime = Date.now(); 
                   previousHandX = null; 
               }
@@ -452,7 +490,6 @@ hands.onResults((results) => {
   } else { 
       previousHandX = null; 
   }
-  /* ------------------------------- */
 
   const ringImg = window.JewelsState.active.rings;
   const bangleImg = window.JewelsState.active.bangles;
@@ -503,62 +540,93 @@ hands.onResults((results) => {
   canvasCtx.restore();
 });
 
-/* --- 10. CAPTURE LOGIC (Secure Screenshot) --- */
+/* --- 11. CAPTURE LOGIC (Secure Screenshot) --- */
+/* --- UPDATED CAPTURE LOGIC: FULL DESCRIPTION WRAPPING --- */
 function captureToGallery() {
     const tempCanvas = document.createElement('canvas'); 
     tempCanvas.width = videoElement.videoWidth; 
     tempCanvas.height = videoElement.videoHeight; 
     const tempCtx = tempCanvas.getContext('2d');
     
+    // 1. Mirroring & Drawing Main Layers
     if (currentCameraMode === 'environment') { tempCtx.translate(0, 0); tempCtx.scale(1, 1); } 
     else { tempCtx.translate(tempCanvas.width, 0); tempCtx.scale(-1, 1); }
-    
     tempCtx.drawImage(videoElement, 0, 0); 
     tempCtx.setTransform(1, 0, 0, 1, 0, 0);
-    
-    try { tempCtx.drawImage(canvasElement, 0, 0); } 
-    catch(e) { console.error("Snapshot Warning: AR Canvas tainted/missing.", e); }
-    
+    try { tempCtx.drawImage(canvasElement, 0, 0); } catch(e) {}
+
+    // 2. Prepare Text Data
     let cleanName = currentAssetName.replace(/\.(png|jpg|jpeg|webp)$/i, "").replace(/_/g, " "); 
     cleanName = cleanName.charAt(0).toUpperCase() + cleanName.slice(1);
     
-    const padding = tempCanvas.width * 0.04; 
+    const padding = tempCanvas.width * 0.05; 
     const titleSize = tempCanvas.width * 0.045; 
-    const descSize = tempCanvas.width * 0.035; 
-    const contentHeight = (titleSize * 2) + descSize + padding;
+    const descSize = tempCanvas.width * 0.032; 
+    const maxWidth = tempCanvas.width - (padding * 2);
+    const lineHeight = descSize * 1.4;
+
+    // 3. Helper to Calculate Lines
+    function getLines(text, maxWidth) {
+        const words = text.split(' ');
+        const lines = [];
+        let currentLine = words[0];
+
+        for (let i = 1; i < words.length; i++) {
+            let word = words[i];
+            let width = tempCtx.measureText(currentLine + " " + word).width;
+            if (width < maxWidth) {
+                currentLine += " " + word;
+            } else {
+                lines.push(currentLine);
+                currentLine = word;
+            }
+        }
+        lines.push(currentLine);
+        return lines;
+    }
+
+    // Measure the text before drawing
+    tempCtx.font = `${descSize}px Montserrat, sans-serif`;
+    const descriptionLines = getLines(cleanName, maxWidth);
     
-    const gradient = tempCtx.createLinearGradient(0, tempCanvas.height - contentHeight - padding, 0, tempCanvas.height);
+    // Calculate required height for the dark background box
+    const totalTextHeight = (descriptionLines.length * lineHeight) + titleSize + (padding * 2);
+
+    // 4. Draw Dynamic Gradient Background
+    const gradient = tempCtx.createLinearGradient(0, tempCanvas.height - totalTextHeight - padding, 0, tempCanvas.height);
     gradient.addColorStop(0, "rgba(0,0,0,0)"); 
-    gradient.addColorStop(0.2, "rgba(0,0,0,0.8)"); 
-    gradient.addColorStop(1, "rgba(0,0,0,0.95)");
-    
+    gradient.addColorStop(0.2, "rgba(0,0,0,0.9)"); 
+    gradient.addColorStop(1, "rgba(0,0,0,0.98)");
     tempCtx.fillStyle = gradient; 
-    tempCtx.fillRect(0, tempCanvas.height - contentHeight - padding, tempCanvas.width, contentHeight + padding);
-    
+    tempCtx.fillRect(0, tempCanvas.height - totalTextHeight - padding, tempCanvas.width, totalTextHeight + padding);
+
+    // 5. Render Title
     tempCtx.font = `bold ${titleSize}px Playfair Display, serif`; 
-    tempCtx.fillStyle = "#d4af37"; tempCtx.textAlign = "left"; tempCtx.textBaseline = "top"; 
-    tempCtx.fillText("Product Description", padding, tempCanvas.height - contentHeight);
-    
+    tempCtx.fillStyle = "#d4af37"; 
+    tempCtx.textAlign = "left"; 
+    const titleY = tempCanvas.height - totalTextHeight + padding;
+    tempCtx.fillText("Product Description", padding, titleY);
+
+    // 6. Render EVERY Line of the Description
     tempCtx.font = `${descSize}px Montserrat, sans-serif`; 
-    tempCtx.fillStyle = "#ffffff"; tempCtx.fillText(cleanName, padding, tempCanvas.height - contentHeight + (titleSize * 1.5));
-    
+    tempCtx.fillStyle = "#ffffff"; 
+    descriptionLines.forEach((line, index) => {
+        const lineY = titleY + titleSize + (index * lineHeight) + (padding * 0.5);
+        tempCtx.fillText(line, padding, lineY);
+    });
+
+    // 7. Watermark
     if (watermarkImg.complete) { 
-        const wWidth = tempCanvas.width * 0.25; 
+        const wWidth = tempCanvas.width * 0.22; 
         const wHeight = (watermarkImg.height / watermarkImg.width) * wWidth; 
-        try { tempCtx.drawImage(watermarkImg, tempCanvas.width - wWidth - padding, padding, wWidth, wHeight); } 
-        catch(e) { console.log("Watermark draw skipped"); }
+        tempCtx.drawImage(watermarkImg, tempCanvas.width - wWidth - padding, padding, wWidth, wHeight);
     }
     
     try {
-        const dataUrl = tempCanvas.toDataURL('image/png'); 
-        return { url: dataUrl, name: `Jewels-Ai_${Date.now()}.png` }; 
-    } catch(e) {
-        console.error("CRITICAL: Canvas Tainted.", e);
-        return null;
-    }
+        return { url: tempCanvas.toDataURL('image/png'), name: `Jewels-Ai_${Date.now()}.png` }; 
+    } catch(e) { return null; }
 }
-
-/* --- 11. TRY ALL & GALLERY LOGIC --- */
+/* --- 12. TRY ALL & GALLERY LOGIC --- */
 function toggleTryAll() { 
     if (!window.JewelsState.currentType) { alert("Select category!"); return; } 
     if (autoTryRunning) stopAutoTry(); else startAutoTry(); 
@@ -579,7 +647,6 @@ async function runAutoStep() {
     setActiveARImage(highResImg); 
     currentAssetName = asset.name; 
     
-    // Wait for render, then snap
     autoTryTimeout = setTimeout(() => { 
         triggerFlash(); 
         const data = captureToGallery(); 
@@ -589,10 +656,10 @@ async function runAutoStep() {
     }, 1500); 
 }
 
-/* --- 12. GALLERY & LIGHTBOX --- */
+/* --- 13. GALLERY & LIGHTBOX --- */
 function showGallery() {
     const grid = document.getElementById('gallery-grid');
-    grid.innerHTML = ''; // Clear previous
+    grid.innerHTML = ''; 
     
     if (autoSnapshots.length === 0) {
         grid.innerHTML = '<p style="color:#888; text-align:center; width:100%;">No items captured.</p>';
@@ -611,7 +678,6 @@ function showGallery() {
         let cleanName = item.name.replace("Jewels-Ai_", "").replace(".png", "").substring(0,12);
         overlay.innerHTML = `<span class="overlay-text">${cleanName}</span><div class="overlay-icon">👁️</div>`;
         
-        // CLICK TO OPEN LIGHTBOX
         card.onclick = () => { 
             currentLightboxIndex = index;
             document.getElementById('lightbox-image').src = item.url;
@@ -646,20 +712,9 @@ window.copyInviteLink = copyInviteLink;
 window.sendVote = (val) => coShop.sendVote(val); 
 window.toggleStacking = toggleStacking; 
 window.openDailyDrop = function() { document.getElementById('daily-drop-modal').style.display = 'flex'; };
-window.openWhatsAppModal = openWhatsAppModal;
-window.confirmWhatsAppDownload = confirmWhatsAppDownload;
-window.downloadSingleSnapshot = () => { if(currentPreviewData.url) saveAs(currentPreviewData.url, currentPreviewData.name); };
-window.shareSingleSnapshot = () => { if(currentPreviewData.url) fetch(currentPreviewData.url).then(r => r.blob()).then(b => navigator.share({files:[new File([b],"look.png",{type:"image/png"})]})); };
-window.downloadAllAsZip = () => { if(autoSnapshots.length>0) { const z=new JSZip(); const f=z.folder("Jewels_Collection"); autoSnapshots.forEach(i=>f.file(i.name,i.url.split(',')[1],{base64:true})); z.generateAsync({type:"blob"}).then(c=>saveAs(c,"Jewels.zip")); }};
-window.changeProduct = changeProduct; 
-window.showToast = (msg) => { var x=document.getElementById("toast-notification"); x.innerText=msg; x.className="show"; setTimeout(()=>x.className=x.className.replace("show",""),3000); };
-function prepareDailyDrop() { if(JEWELRY_ASSETS['earrings'] && JEWELRY_ASSETS['earrings'].length > 0) { const l=JEWELRY_ASSETS['earrings']; const i=Math.floor(Math.random()*l.length); dailyItem={item:l[i],index:i,type:'earrings'}; document.getElementById('daily-img').src=dailyItem.item.thumbSrc; document.getElementById('daily-name').innerText=dailyItem.item.name; } }
-function closeDailyDrop() { document.getElementById('daily-drop-modal').style.display='none'; }
-function tryDailyItem() { closeDailyDrop(); if (dailyItem) { selectJewelryType(dailyItem.type).then(() => { applyAssetInstantly(dailyItem.item, dailyItem.index, true); }); } }
-function toggleCoShop() { const m=document.getElementById('coshop-modal'); if (coShop.myId) { document.getElementById('invite-link-box').innerText=window.location.origin+window.location.pathname+"?room="+coShop.myId; m.style.display='flex'; } else showToast("Generating ID..."); }
-function closeCoShopModal() { document.getElementById('coshop-modal').style.display='none'; }
-function copyInviteLink() { navigator.clipboard.writeText(document.getElementById('invite-link-box').innerText).then(()=>showToast("Link Copied!")); }
-function triggerFlash() { if(!flashOverlay) return; flashOverlay.classList.remove('flash-active'); void flashOverlay.offsetWidth; flashOverlay.classList.add('flash-active'); setTimeout(()=>flashOverlay.classList.remove('flash-active'),300); }
+window.downloadSingleSnapshot = downloadSingleSnapshot;
+window.shareSingleSnapshot = shareSingleSnapshot;
+window.takeSnapshot = takeSnapshot;
 window.closePreview = closePreview;
 window.closeGallery = closeGallery;
 window.closeLightbox = closeLightbox;
@@ -667,68 +722,14 @@ window.changeLightboxImage = changeLightboxImage;
 window.toggleConciergeMute = () => concierge.toggle();
 window.initVoiceControl = initVoiceControl;
 window.toggleVoiceControl = toggleVoiceControl;
+window.changeProduct = changeProduct; 
+window.showToast = (msg) => { var x=document.getElementById("toast-notification"); x.innerText=msg; x.className="show"; setTimeout(()=>x.className=x.className.replace("show",""),3000); };
+
+function prepareDailyDrop() { if(JEWELRY_ASSETS['earrings'] && JEWELRY_ASSETS['earrings'].length > 0) { const l=JEWELRY_ASSETS['earrings']; const i=Math.floor(Math.random()*l.length); dailyItem={item:l[i],index:i,type:'earrings'}; document.getElementById('daily-img').src=dailyItem.item.thumbSrc; document.getElementById('daily-name').innerText=dailyItem.item.name; } }
+function closeDailyDrop() { document.getElementById('daily-drop-modal').style.display='none'; }
+function tryDailyItem() { closeDailyDrop(); if (dailyItem) { selectJewelryType(dailyItem.type).then(() => { applyAssetInstantly(dailyItem.item, dailyItem.index, true); }); } }
+function toggleCoShop() { const m=document.getElementById('coshop-modal'); if (coShop.myId) { document.getElementById('invite-link-box').innerText=window.location.origin+window.location.pathname+"?room="+coShop.myId; m.style.display='flex'; } else showToast("Generating ID..."); }
+function closeCoShopModal() { document.getElementById('coshop-modal').style.display='none'; }
+function copyInviteLink() { navigator.clipboard.writeText(document.getElementById('invite-link-box').innerText).then(()=>showToast("Link Copied!")); }
+function triggerFlash() { if(!flashOverlay) return; flashOverlay.classList.remove('flash-active'); void flashOverlay.offsetWidth; flashOverlay.classList.add('flash-active'); setTimeout(()=>flashOverlay.classList.remove('flash-active'),300); }
 function lerp(start, end, amt) { return (1 - amt) * start + amt * end; }
-/* --- SNAPSHOT & SHARING LOGIC --- */
-
-async function takeSnapshot() {
-    triggerFlash(); // Use your existing flash effect
-    
-    // Use your existing capture logic
-    const snapshot = captureToGallery();
-    
-    if (snapshot && snapshot.url) {
-        currentPreviewData = snapshot; // Store for download/share
-        const previewImg = document.getElementById('preview-image');
-        previewImg.src = snapshot.url;
-        
-        // Show the modal
-        document.getElementById('preview-modal').style.display = 'flex';
-        if(concierge.active) concierge.speak("Looking Great! Would you like to save this?");
-    } else {
-        showToast("Error capturing image.");
-    }
-}
-
-function downloadSingleSnapshot() {
-    if (!currentPreviewData.url) return;
-    const link = document.createElement('a');
-    link.href = currentPreviewData.url;
-    link.download = `Jewels-Ai_${Date.now()}.png`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    showToast("Image Saved!");
-}
-
-async function shareSingleSnapshot() {
-    if (!currentPreviewData.url) return;
-    
-    try {
-        const response = await fetch(currentPreviewData.url);
-        const blob = await response.blob();
-        const file = new File([blob], 'my-jewels-look.png', { type: 'image/png' });
-
-        if (navigator.share) {
-            await navigator.share({
-                title: 'My Jewels-Ai Look',
-                text: 'Check out this jewelry I tried on virtually!',
-                files: [file]
-            });
-        } else {
-            showToast("Sharing not supported on this browser.");
-        }
-    } catch (err) {
-        console.error("Sharing failed:", err);
-        showToast("Could not share image.");
-    }
-}
-
-// Add this to your existing closePreview function or ensure it exists
-function closePreview() {
-    document.getElementById('preview-modal').style.display = 'none';
-}
-
-// Ensure global access
-window.takeSnapshot = takeSnapshot;
-window.downloadSingleSnapshot = downloadSingleSnapshot;
-window.shareSingleSnapshot = shareSingleSnapshot;
